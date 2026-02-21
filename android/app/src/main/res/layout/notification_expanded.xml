@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- Иностранное слово -->
+    <TextView
+        android:id="@+id/notification_word"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="4dp"/>
+
+    <!-- Перевод -->
+    <TextView
+        android:id="@+id/notification_body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="13sp"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Кнопки -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <Button
+            android:id="@+id/btn_play"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="34dp"
+            android:text="▶"
+            android:textSize="14sp"
+            android:backgroundTint="#6C63FF"
+            android:textColor="#FFFFFF"/>
+
+        <Button
+            android:id="@+id/btn_priority_high"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="34dp"
+            android:layout_marginStart="8dp"
+            android:text=""
+            android:backgroundTint="#FF5252"/>
+
+        <Button
+            android:id="@+id/btn_priority_medium"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="34dp"
+            android:layout_marginStart="8dp"
+            android:text=""
+            android:backgroundTint="#FFD740"/>
+
+        <Button
+            android:id="@+id/btn_priority_low"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="34dp"
+            android:layout_marginStart="8dp"
+            android:text=""
+            android:backgroundTint="#69F0AE"/>
+
+    </LinearLayout>
+
+</LinearLayout>
