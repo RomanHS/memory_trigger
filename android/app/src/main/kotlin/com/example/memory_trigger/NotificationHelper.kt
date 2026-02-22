@@ -12,8 +12,6 @@ object NotificationHelper {
 
     /**
      * Показывает уведомление для слова.
-     * Использует фиксированный NOTIFICATION_ID = 1001, поэтому в системе
-     * всегда не более одного уведомления от приложения.
      */
     fun showWordNotification(
         context: Context,
@@ -24,11 +22,9 @@ object NotificationHelper {
         val notifId     = DatabaseHelper.NOTIFICATION_ID
         val packageName = context.packageName
 
-        // TTS URL строится из слова
         val audioUrl = "https://translate.google.com/translate_tts" +
                 "?ie=UTF-8&tl=en&client=tw-ob&q=${Uri.encode(foreignWord)}"
 
-        // ── PendingIntent: Play (request code = 1) ─────────────────────────
         val playPendingIntent = PendingIntent.getBroadcast(
             context, 1,
             Intent(context, PlayReceiver::class.java).apply {
@@ -38,22 +34,10 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // ── PendingIntent: Высокий (priority=1, request code = 2) ─────────
-        val highPendingIntent = makePriorityIntent(
-            context, wordId, DatabaseHelper.PRIORITY_HIGH, requestCode = 2
-        )
+        val highPendingIntent = makePriorityIntent(context, wordId, DatabaseHelper.PRIORITY_HIGH, requestCode = 2)
+        val mediumPendingIntent = makePriorityIntent(context, wordId, DatabaseHelper.PRIORITY_MEDIUM, requestCode = 3)
+        val lowPendingIntent = makePriorityIntent(context, wordId, DatabaseHelper.PRIORITY_LOW, requestCode = 4)
 
-        // ── PendingIntent: Средний (priority=2, request code = 3) ─────────
-        val mediumPendingIntent = makePriorityIntent(
-            context, wordId, DatabaseHelper.PRIORITY_MEDIUM, requestCode = 3
-        )
-
-        // ── PendingIntent: Низкий (priority=3, request code = 4) ──────────
-        val lowPendingIntent = makePriorityIntent(
-            context, wordId, DatabaseHelper.PRIORITY_LOW, requestCode = 4
-        )
-
-        // ── PendingIntent: Dismiss (Request code = 5) ─────────────────────
         val dismissPendingIntent = PendingIntent.getBroadcast(
             context, 5,
             Intent(context, DismissReceiver::class.java).apply {
@@ -64,13 +48,11 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // ── Tap on notification — не открывает приложение (request code = 0)
         val emptyPendingIntent = PendingIntent.getBroadcast(
             context, 0, Intent(),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // ── Свёрнутый layout ──────────────────────────────────────────────
         val collapsed = RemoteViews(packageName, R.layout.notification_collapsed).apply {
             setTextViewText(R.id.notification_word, foreignWord)
             setOnClickPendingIntent(R.id.btn_play,            playPendingIntent)
@@ -79,7 +61,6 @@ object NotificationHelper {
             setOnClickPendingIntent(R.id.btn_priority_low,    lowPendingIntent)
         }
 
-        // ── Развёрнутый layout ────────────────────────────────────────────
         val expanded = RemoteViews(packageName, R.layout.notification_expanded).apply {
             setTextViewText(R.id.notification_word, foreignWord)
             setTextViewText(R.id.notification_body, translation)
@@ -93,8 +74,8 @@ object NotificationHelper {
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setCustomContentView(collapsed)
             .setCustomBigContentView(expanded)
-            .setOngoing(true) // Возвращаем запрет на смахивание
-            .setDeleteIntent(dismissPendingIntent) // Оставляем на случай, если система всё же закроет
+            .setOngoing(true)
+            .setDeleteIntent(dismissPendingIntent)
             .setContentIntent(emptyPendingIntent)
             .setAutoCancel(false)
             .setDefaults(NotificationCompat.DEFAULT_SOUND)
@@ -104,6 +85,53 @@ object NotificationHelper {
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(notifId, notification)
+
+        // Сохраняем ID последнего показанного слова
+        DatabaseHelper.getInstance(context).setLastWordId(wordId)
+        MainActivity.sendEvent("db_changed")
+    }
+
+    fun scheduleRepeatingNotification(context: Context, word: String, translation: String, wordId: Long) {
+        val db = DatabaseHelper.getInstance(context)
+        
+        // Сразу помечаем слово как "следующее активное" в базе
+        db.setLastWordId(wordId)
+        MainActivity.sendEvent("db_changed")
+
+        // Закрываем предыдущее уведомление, если оно было
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(DatabaseHelper.NOTIFICATION_ID)
+
+        val delaySeconds = db.getDelaySeconds()
+
+        if (delaySeconds <= 0) {
+            showWordNotification(context, wordId, word, translation)
+            return
+        }
+
+        val intent = Intent(context, NotificationReceiver::class.java).apply {
+            putExtra("title",  word)
+            putExtra("body",   translation)
+            putExtra("wordId", wordId)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context, DatabaseHelper.NOTIFICATION_ID, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        val triggerTime  = System.currentTimeMillis() + delaySeconds * 1000L
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            if (alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+            } else {
+                alarmManager.set(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+            }
+        } else {
+            alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+        }
     }
 
     private fun makePriorityIntent(

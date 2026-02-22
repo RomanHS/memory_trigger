@@ -37,6 +37,7 @@ class DatabaseHelper(context: Context) :
         const val KEY_LOOP_COUNT        = "loop_count"
         const val DEFAULT_LOOP_COUNT    = 1
         const val KEY_GSHEET_LINK       = "gsheet_link"
+        const val KEY_LAST_WORD_ID      = "last_word_id"
 
         private const val TAG = "DatabaseHelper"
 
@@ -320,6 +321,34 @@ class DatabaseHelper(context: Context) :
                 put(COL_SETTING_VALUE, link)
             })
         }
+    }
+
+    fun getLastWordId(): Long {
+        readableDatabase.query(TABLE_SETTINGS, arrayOf(COL_SETTING_VALUE),
+            "$COL_SETTING_KEY = ?", arrayOf(KEY_LAST_WORD_ID), null, null, null
+        ).use { c ->
+            if (c.moveToFirst()) return c.getString(0).toLongOrNull() ?: -1L
+        }
+        return -1L
+    }
+
+    fun setLastWordId(id: Long) {
+        val values = ContentValues().apply { put(COL_SETTING_VALUE, id.toString()) }
+        val updated = writableDatabase.update(TABLE_SETTINGS, values,
+            "$COL_SETTING_KEY = ?", arrayOf(KEY_LAST_WORD_ID))
+        if (updated == 0) {
+            writableDatabase.insert(TABLE_SETTINGS, null, ContentValues().apply {
+                put(COL_SETTING_KEY, KEY_LAST_WORD_ID)
+                put(COL_SETTING_VALUE, id.toString())
+            })
+        }
+    }
+
+    fun getWordById(id: Long): Map<String, Any>? {
+        readableDatabase.query(TABLE_WORDS, null, "$COL_WORD_ID = ?", arrayOf(id.toString()), null, null, null).use { c ->
+            if (c.moveToFirst()) return wordFromCursor(c)
+        }
+        return null
     }
 
     fun getAllSettings(): Map<String, String> {

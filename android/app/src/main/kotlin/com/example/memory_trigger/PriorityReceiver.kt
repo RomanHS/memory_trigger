@@ -61,30 +61,7 @@ class PriorityReceiver : BroadcastReceiver() {
 
         Log.d(TAG, "Scheduling next: wordId=$nextWordId '$foreignWord' in ${delaySeconds}s")
 
-        // 4. Планируем следующее уведомление через AlarmManager
-        val notifIntent = Intent(context, NotificationReceiver::class.java).apply {
-            putExtra("title",  foreignWord)
-            putExtra("body",   translation)
-            putExtra("wordId", nextWordId)
-        }
-
-        // Используем REQUEST_CODE = NOTIFICATION_ID чтобы новый Alarm заменил старый
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, DatabaseHelper.NOTIFICATION_ID, notifIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val triggerTime  = System.currentTimeMillis() + delaySeconds * 1000L
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-            } else {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-            }
-        } else {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-        }
+        // 4. Планируем следующее уведомление
+        NotificationHelper.scheduleRepeatingNotification(context, foreignWord, translation, nextWordId)
     }
 }

@@ -31,32 +31,6 @@ class DismissReceiver : BroadcastReceiver() {
 
         Log.d(TAG, "Notification dismissed by user. Rescheduling same word: id=$wordId ($title)")
 
-        val db = DatabaseHelper.getInstance(context)
-        val delaySeconds = db.getDelaySeconds()
-
-        // Формируем интен для NotificationReceiver (как это делает MainActivity или PriorityReceiver)
-        val notifIntent = Intent(context, NotificationReceiver::class.java).apply {
-            putExtra("title",  title)
-            putExtra("body",   body)
-            putExtra("wordId", wordId)
-        }
-
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, DatabaseHelper.NOTIFICATION_ID, notifIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val triggerTime  = System.currentTimeMillis() + delaySeconds * 1000L
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-            } else {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-            }
-        } else {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-        }
+        NotificationHelper.scheduleRepeatingNotification(context, title, body, wordId)
     }
 }

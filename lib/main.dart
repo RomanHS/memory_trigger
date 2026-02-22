@@ -39,6 +39,7 @@ class _HomePageState extends State<HomePage> {
   String _status = '';
   List<Map<String, dynamic>> _words = [];
   int _delaySeconds = 5; // загружается из БД
+  int _activeWordId = -1; // ID последнего показанного слова
 
   // Контроллеры для полей ввода в диалоге
   final _foreignWordCtrl = TextEditingController();
@@ -64,8 +65,9 @@ class _HomePageState extends State<HomePage> {
   void _listenToEvents() {
     _eventChannel.receiveBroadcastStream().listen((event) {
       if (event == "db_changed") {
-        debugPrint("Event received: db_changed. Refreshing words...");
+        debugPrint("Event received: db_changed. Refreshing words and settings...");
         _loadWords();
+        _loadSettings();
       }
     });
   }
@@ -97,7 +99,10 @@ class _HomePageState extends State<HomePage> {
     try {
       final Map<dynamic, dynamic> raw = await _dbChannel.invokeMethod('getSettings');
       if (!mounted) return;
-      setState(() => _delaySeconds = (raw['delay_seconds'] as int?) ?? 5);
+      setState(() {
+        _delaySeconds = (raw['delay_seconds'] as int?) ?? 5;
+        _activeWordId = (raw['last_word_id'] as int?) ?? -1;
+      });
     } on PlatformException catch (e) {
       debugPrint('Settings error: ${e.message}');
     }
@@ -128,6 +133,20 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // ── "Активация" слова (показать сейчас и продолжить с него) ──────────────
+
+  Future<void> _activateWord(int id) async {
+    try {
+      await _dbChannel.invokeMethod('scheduleImmediate', {'id': id});
+      if (!mounted) return;
+      setState(() {
+        _status = 'Слово активировано и будет показано сейчас';
+      });
+    } on PlatformException catch (e) {
+      debugPrint('Activation error: ${e.message}');
+    }
+  }
+
   // ── Добавление слова ──────────────────────────────────────────────────────
 
   Future<void> _addWord(String foreignWord, String translation) async {
@@ -146,8 +165,6 @@ class _HomePageState extends State<HomePage> {
 
       // 2. Добавляем в локальный список
       if (!mounted) return;
-      final bool isFirstWord = _words.isEmpty;
-
       setState(() {
         _words = [
           {
@@ -160,7 +177,7 @@ class _HomePageState extends State<HomePage> {
           },
           ..._words,
         ];
-        if (isFirstWord) {
+        if (_words.length == 1) {
           _status = 'Слово добавлено, уведомление через ${_delayLabel()}';
         } else {
           _status = 'Слово добавлено в очередь';
@@ -168,7 +185,7 @@ class _HomePageState extends State<HomePage> {
       });
 
       // 3. Планируем уведомление только если это первое слово
-      if (isFirstWord) {
+      if (_words.length == 1) {
         await _channel.invokeMethod('scheduleNotification', {'word_id': newId, 'title': foreignWord, 'body': translation});
       }
     } on PlatformException catch (e) {
@@ -444,7 +461,9 @@ class _HomePageState extends State<HomePage> {
                       itemCount: _words.length,
                       itemBuilder: (context, index) {
                         final item = _words[index];
+                        final id = item['id'] as int;
                         final isNew = index == 0;
+                        final isActive = id == _activeWordId;
                         final foreign = item['foreign_word'] as String? ?? '';
                         final translation = item['translation'] as String? ?? '';
                         final tsMs = item['timestamp_ms'];
@@ -462,11 +481,21 @@ class _HomePageState extends State<HomePage> {
                               color: const Color(0xFF13132A),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: isNew ? const Color(0xFF6C63FF).withOpacity(0.55) : const Color(0xFF6C63FF).withOpacity(0.12),
-                                width: isNew ? 1.5 : 1,
+                                color: isActive
+                                    ? const Color(0xFF6C63FF)
+                                    : isNew
+                                    ? const Color(0xFF6C63FF).withValues(alpha: 0.55)
+                                    : const Color(0xFF6C63FF).withValues(alpha: 0.12),
+                                width: (isActive || isNew) ? 1.5 : 1,
                               ),
-                              boxShadow: isNew
-                                  ? [BoxShadow(color: const Color(0xFF6C63FF).withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))]
+                              boxShadow: (isActive || isNew)
+                                  ? [
+                                      BoxShadow(
+                                        color: const Color(0xFF6C63FF).withValues(alpha: isActive ? 0.25 : 0.15),
+                                        blurRadius: isActive ? 16 : 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ]
                                   : null,
                             ),
                             child: ListTile(
@@ -497,8 +526,22 @@ class _HomePageState extends State<HomePage> {
                                       style: const TextStyle(color: Color(0xFFEFEFEF), fontSize: 16, fontWeight: FontWeight.w600),
                                     ),
                                   ),
-                                  if (isNew)
+                                  if (isActive)
                                     Container(
+                                      margin: const EdgeInsets.only(left: 8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(colors: [Color(0xFF6C63FF), Color(0xFF9B59B6)]),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'ACTIVE',
+                                        style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                      ),
+                                    )
+                                  else if (isNew)
+                                    Container(
+                                      margin: const EdgeInsets.only(left: 8),
                                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFF6C63FF).withValues(alpha: 0.25),
@@ -528,20 +571,23 @@ class _HomePageState extends State<HomePage> {
                               ),
                               trailing: PopupMenuButton<String>(
                                 icon: const Icon(Icons.more_vert, color: Color(0xFF666677)),
-                                onSelected: (val) {
-                                  if (val == 'edit') {
-                                    _showAddWordDialog(wordToEdit: item);
-                                  } else if (val == 'delete') {
-                                    _deleteWord(item['id'] as int);
-                                  }
-                                },
                                 itemBuilder: (ctx) => [
+                                  if (!isActive) const PopupMenuItem(value: 'activate', child: Text('Показать следующим')),
                                   const PopupMenuItem(value: 'edit', child: Text('Редактировать')),
                                   const PopupMenuItem(
                                     value: 'delete',
                                     child: Text('Удалить', style: TextStyle(color: Colors.redAccent)),
                                   ),
                                 ],
+                                onSelected: (val) {
+                                  if (val == 'activate') {
+                                    _activateWord(id);
+                                  } else if (val == 'edit') {
+                                    _showAddWordDialog(wordToEdit: item);
+                                  } else if (val == 'delete') {
+                                    _deleteWord(id);
+                                  }
+                                },
                               ),
                             ),
                           ),

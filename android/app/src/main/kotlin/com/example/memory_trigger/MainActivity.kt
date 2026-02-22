@@ -125,7 +125,8 @@ class MainActivity : FlutterActivity() {
                 "getSettings" -> {
                     result.success(mapOf(
                         "delay_seconds" to db.getDelaySeconds(),
-                        "gsheet_link"   to db.getGSheetLink()
+                        "gsheet_link"   to db.getGSheetLink(),
+                        "last_word_id"  to db.getLastWordId()
                     ))
                 }
                 "setDelaySeconds" -> {
@@ -136,6 +137,28 @@ class MainActivity : FlutterActivity() {
                 "setGSheetLink" -> {
                     val link = call.argument<String>("link") ?: ""
                     db.setGSheetLink(link)
+                    result.success(null)
+                }
+                "setLastWordId" -> {
+                    val id = (call.argument<Int>("id") ?: -1).toLong()
+                    db.setLastWordId(id)
+                    
+                    // Если мы вручную меняем "последнее слово", полезно перепланировать уведомление
+                    // если пользователь хочет, чтобы это слово СЛЕДУЮЩИМ.
+                    // Но по логике getNextWord(currentId) возьмет слово ПОСЛЕ текущего.
+                    // Если пользователь нажал "Сделать это слово активным", то уведомление должно быть С ЭТИМ словом?
+                    // Обычно "активное" значит "последнее показанное".
+                    result.success(null)
+                }
+                "scheduleImmediate" -> {
+                    // Форсированный запуск уведомления для конкретного ID
+                    val id = (call.argument<Int>("id") ?: -1).toLong()
+                    val word = db.getWordById(id)
+                    if (word != null) {
+                        val fw = word["foreign_word"] as String
+                        val tr = word["translation"]  as String
+                        NotificationHelper.scheduleRepeatingNotification(this, fw, tr, id)
+                    }
                     result.success(null)
                 }
                 "bulkAddWords" -> {
@@ -181,31 +204,6 @@ class MainActivity : FlutterActivity() {
      * - notificationId = NOTIFICATION_ID → одно уведомление в системе
      */
     private fun scheduleNotification(title: String, body: String, wordId: Long) {
-        val db           = DatabaseHelper.getInstance(this)
-        val delaySeconds = db.getDelaySeconds()
-
-        val intent = Intent(this, NotificationReceiver::class.java).apply {
-            putExtra("title",  title)
-            putExtra("body",   body)
-            putExtra("wordId", wordId)
-        }
-
-        val pendingIntent = PendingIntent.getBroadcast(
-            this, DatabaseHelper.NOTIFICATION_ID, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val triggerTime  = System.currentTimeMillis() + delaySeconds * 1000L
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-            } else {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-            }
-        } else {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
-        }
+        NotificationHelper.scheduleRepeatingNotification(this, title, body, wordId)
     }
 }

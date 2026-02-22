@@ -53,6 +53,16 @@
             android:name=".DismissReceiver"
             android:exported="false"/>
 
+        <!-- BroadcastReceiver для восстановления уведомления после обновления или перезагрузки -->
+        <receiver
+            android:name=".RestorationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

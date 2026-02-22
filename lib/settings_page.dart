@@ -240,9 +240,9 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                               child: Slider(
                                 value: _delaySeconds.toDouble(),
-                                min: 5,
+                                min: 0,
                                 max: 7200,
-                                divisions: 1439,
+                                divisions: 1440,
                                 onChanged: (v) => setState(() => _delaySeconds = v.round()),
                               ),
                             ),
@@ -251,7 +251,7 @@ class _SettingsPageState extends State<SettingsPage> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('5 сек', style: TextStyle(color: Color(0xFF555566), fontSize: 11)),
+                                  Text('0 сек', style: TextStyle(color: Color(0xFF555566), fontSize: 11)),
                                   Text('2 ч', style: TextStyle(color: Color(0xFF555566), fontSize: 11)),
                                 ],
                               ),
@@ -262,7 +262,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
-                              children: [5, 10, 60, 300, 1800, 3600, 7200].map((sec) {
+                              children: [0, 5, 10, 60, 300, 1800, 3600, 7200].map((sec) {
                                 final selected = _delaySeconds == sec;
                                 return GestureDetector(
                                   onTap: () => setState(() => _delaySeconds = sec),
