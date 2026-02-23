@@ -44,11 +44,7 @@ class PriorityReceiver : BroadcastReceiver() {
             MainActivity.sendEvent("db_changed")
         }
 
-        // 2. Закрываем текущее уведомление
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.cancel(DatabaseHelper.NOTIFICATION_ID)
-
-        // 3. Получаем следующее слово (с циклическим переходом)
+        // 2. Получаем следующее слово (с циклическим переходом)
         val nextWord = db.getNextWord(wordId) ?: run {
             Log.d(TAG, "No words in DB — nothing to schedule")
             return

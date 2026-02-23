@@ -102,17 +102,18 @@ object NotificationHelper {
         db.setLastWordId(wordId)
         MainActivity.sendEvent("db_changed")
 
-        // Закрываем предыдущее уведомление, если оно возникло быстро
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.cancel(DatabaseHelper.NOTIFICATION_ID)
-
         val delaySeconds = db.getDelaySeconds()
 
-        // Если задержка 0, показываем сразу, минуя AlarmManager
+        // Если задержка 0, показываем сразу, минуя AlarmManager.
+        // Мы НЕ вызываем cancel(), чтобы уведомление обновилось на месте, а не прыгало в списке.
         if (delaySeconds <= 0) {
             showWordNotification(context, wordId, word, translation)
             return
         }
+
+        // Если есть задержка, убираем текущее уведомление из шторки
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(DatabaseHelper.NOTIFICATION_ID)
 
         val intent = Intent(context, NotificationReceiver::class.java).apply {
             putExtra("title",  word)
