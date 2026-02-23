@@ -1,0 +1,51 @@
+name: Build Release APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Clean build
+        run: flutter clean
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Send APK to Telegram
+        if: success()
+        env:
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          curl -v -F "chat_id=$CHAT_ID" -F document=@"build/app/outputs/flutter-apk/app-release.apk" -F caption="✅ Новая сборка Memory Trigger готова! (v${{ github.run_number }})" "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
