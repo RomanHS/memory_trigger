@@ -7,8 +7,10 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import android.util.Log
 
 object NotificationHelper {
+    private const val TAG = "NotificationHelper"
 
     /**
      * Показывает уведомление для слова.
@@ -48,8 +50,10 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val emptyPendingIntent = PendingIntent.getBroadcast(
-            context, 0, Intent(),
+        // ── Tap on notification — открывает приложение
+        val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        val openAppPendingIntent = PendingIntent.getActivity(
+            context, 0, openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -76,7 +80,7 @@ object NotificationHelper {
             .setCustomBigContentView(expanded)
             .setOngoing(true)
             .setDeleteIntent(dismissPendingIntent)
-            .setContentIntent(emptyPendingIntent)
+            .setContentIntent(openAppPendingIntent)
             .setAutoCancel(false)
             .setDefaults(NotificationCompat.DEFAULT_SOUND)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -98,12 +102,13 @@ object NotificationHelper {
         db.setLastWordId(wordId)
         MainActivity.sendEvent("db_changed")
 
-        // Закрываем предыдущее уведомление, если оно было
+        // Закрываем предыдущее уведомление, если оно возникло быстро
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(DatabaseHelper.NOTIFICATION_ID)
 
         val delaySeconds = db.getDelaySeconds()
 
+        // Если задержка 0, показываем сразу, минуя AlarmManager
         if (delaySeconds <= 0) {
             showWordNotification(context, wordId, word, translation)
             return
@@ -131,6 +136,33 @@ object NotificationHelper {
             }
         } else {
             alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+        }
+    }
+
+    fun restoreCycle(context: Context) {
+        val db = DatabaseHelper.getInstance(context)
+        val lastWordId = db.getLastWordId()
+
+        if (lastWordId != -1L) {
+            val word = db.getWordById(lastWordId)
+            if (word != null) {
+                val title = word["foreign_word"] as? String ?: ""
+                val body  = word["translation"]  as? String ?: ""
+                Log.d(TAG, "Restoring notification for last word: id=$lastWordId ($title)")
+                scheduleRepeatingNotification(context, title, body, lastWordId)
+            }
+        } else {
+            // Если слов нет в активных, пробуем начать сначала
+            val words = db.getAllWords()
+            if (words.isNotEmpty()) {
+                val nextWord = db.getNextWord(-1L)
+                if (nextWord != null) {
+                    val title = nextWord["foreign_word"] as? String ?: ""
+                    val body  = nextWord["translation"]  as? String ?: ""
+                    Log.d(TAG, "Starting new cycle from first word")
+                    scheduleRepeatingNotification(context, title, body, nextWord["id"] as Long)
+                }
+            }
         }
     }
 

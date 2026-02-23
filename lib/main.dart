@@ -462,7 +462,6 @@ class _HomePageState extends State<HomePage> {
                       itemBuilder: (context, index) {
                         final item = _words[index];
                         final id = item['id'] as int;
-                        final isNew = index == 0;
                         final isActive = id == _activeWordId;
                         final foreign = item['foreign_word'] as String? ?? '';
                         final translation = item['translation'] as String? ?? '';
@@ -481,14 +480,10 @@ class _HomePageState extends State<HomePage> {
                               color: const Color(0xFF13132A),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: isActive
-                                    ? const Color(0xFF6C63FF)
-                                    : isNew
-                                    ? const Color(0xFF6C63FF).withValues(alpha: 0.55)
-                                    : const Color(0xFF6C63FF).withValues(alpha: 0.12),
-                                width: (isActive || isNew) ? 1.5 : 1,
+                                color: isActive ? const Color(0xFF6C63FF) : const Color(0xFF6C63FF).withValues(alpha: 0.12),
+                                width: (isActive) ? 1.5 : 1,
                               ),
-                              boxShadow: (isActive || isNew)
+                              boxShadow: (isActive)
                                   ? [
                                       BoxShadow(
                                         color: const Color(0xFF6C63FF).withValues(alpha: isActive ? 0.25 : 0.15),
@@ -537,19 +532,6 @@ class _HomePageState extends State<HomePage> {
                                       child: const Text(
                                         'ACTIVE',
                                         style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                                      ),
-                                    )
-                                  else if (isNew)
-                                    Container(
-                                      margin: const EdgeInsets.only(left: 8),
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF6C63FF).withValues(alpha: 0.25),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: const Text(
-                                        'new',
-                                        style: TextStyle(color: Color(0xFF9B8FFF), fontSize: 10, fontWeight: FontWeight.w600),
                                       ),
                                     ),
                                 ],

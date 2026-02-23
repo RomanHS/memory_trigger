@@ -35,6 +35,9 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         instance = this
+        
+        // Восстанавливаем цикл уведомлений при запуске приложения
+        NotificationHelper.restoreCycle(this)
     }
 
     override fun onDestroy() {
