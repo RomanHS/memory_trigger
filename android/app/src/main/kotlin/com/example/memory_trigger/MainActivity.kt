@@ -135,6 +135,11 @@ class MainActivity : FlutterActivity() {
                 "setDelaySeconds" -> {
                     val seconds = call.argument<Int>("seconds") ?: DatabaseHelper.DEFAULT_DELAY_SECONDS
                     db.setDelaySeconds(seconds)
+                    
+                    // Перепланируем текущее ожидающее уведомление с новой задержкой,
+                    // чтобы пользователю не приходилось ждать старый длинный интервал.
+                    NotificationHelper.restoreCycle(this)
+                    
                     result.success(null)
                 }
                 "setGSheetLink" -> {

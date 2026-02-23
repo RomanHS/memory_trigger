@@ -105,8 +105,12 @@ object NotificationHelper {
         val delaySeconds = db.getDelaySeconds()
 
         // Если задержка 0, показываем сразу, минуя AlarmManager.
-        // Мы НЕ вызываем cancel(), чтобы уведомление обновилось на месте, а не прыгало в списке.
+        // Мы вызываем cancel(), чтобы "сбросить" состояние развернутости уведомления,
+        // иначе пользователь сразу увидит перевод следующего слова.
         if (delaySeconds <= 0) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.cancel(DatabaseHelper.NOTIFICATION_ID)
+            
             showWordNotification(context, wordId, word, translation)
             return
         }
@@ -145,6 +149,14 @@ object NotificationHelper {
         val lastWordId = db.getLastWordId()
 
         if (lastWordId != -1L) {
+            // Если уведомление уже отображается в шторке, не нужно его перепланировать.
+            // Это предотвращает "прыжки" и лишние сработки при изменении настроек.
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                val isShowing = nm.activeNotifications.any { it.id == DatabaseHelper.NOTIFICATION_ID }
+                if (isShowing) return
+            }
+
             val word = db.getWordById(lastWordId)
             if (word != null) {
                 val title = word["foreign_word"] as? String ?: ""
