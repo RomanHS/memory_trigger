@@ -50,12 +50,20 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val db = DatabaseHelper.getInstance(context)
+        val word = db.getWordById(wordId)
+        val currentPriority = word?.get("priority") as? Int ?: DatabaseHelper.PRIORITY_HIGH
+
         val collapsed = RemoteViews(packageName, R.layout.notification_collapsed).apply {
             setTextViewText(R.id.notification_word, foreignWord)
             setOnClickPendingIntent(R.id.btn_play,            playPendingIntent)
             setOnClickPendingIntent(R.id.btn_priority_high,   highPendingIntent)
             setOnClickPendingIntent(R.id.btn_priority_medium, mediumPendingIntent)
             setOnClickPendingIntent(R.id.btn_priority_low,    lowPendingIntent)
+
+            setTextViewText(R.id.btn_priority_high,   if (currentPriority == DatabaseHelper.PRIORITY_HIGH)   "✓" else "")
+            setTextViewText(R.id.btn_priority_medium, if (currentPriority == DatabaseHelper.PRIORITY_MEDIUM) "✓" else "")
+            setTextViewText(R.id.btn_priority_low,    if (currentPriority == DatabaseHelper.PRIORITY_LOW)    "✓" else "")
         }
 
         val expanded = RemoteViews(packageName, R.layout.notification_expanded).apply {
@@ -66,6 +74,9 @@ object NotificationHelper {
             setOnClickPendingIntent(R.id.btn_priority_medium, mediumPendingIntent)
             setOnClickPendingIntent(R.id.btn_priority_low,    lowPendingIntent)
 
+            setTextViewText(R.id.btn_priority_high,   if (currentPriority == DatabaseHelper.PRIORITY_HIGH)   "✓" else "")
+            setTextViewText(R.id.btn_priority_medium, if (currentPriority == DatabaseHelper.PRIORITY_MEDIUM) "✓" else "")
+            setTextViewText(R.id.btn_priority_low,    if (currentPriority == DatabaseHelper.PRIORITY_LOW)    "✓" else "")
             // Ссылки на словари
             val googleUrl = "https://translate.google.com/m?sl=en&tl=ru&text=${Uri.encode(foreignWord)}&op=translate"
             val cambridgeUrl = "https://dictionary.cambridge.org/dictionary/english/${Uri.encode(foreignWord)}"
