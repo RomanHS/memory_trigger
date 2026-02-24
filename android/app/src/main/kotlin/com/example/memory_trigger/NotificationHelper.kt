@@ -50,13 +50,6 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // ── Tap on notification — открывает приложение
-        val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-        val openAppPendingIntent = PendingIntent.getActivity(
-            context, 0, openAppIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val collapsed = RemoteViews(packageName, R.layout.notification_collapsed).apply {
             setTextViewText(R.id.notification_word, foreignWord)
             setOnClickPendingIntent(R.id.btn_play,            playPendingIntent)
@@ -80,7 +73,6 @@ object NotificationHelper {
             .setCustomBigContentView(expanded)
             .setOngoing(true)
             .setDeleteIntent(dismissPendingIntent)
-            .setContentIntent(openAppPendingIntent)
             .setAutoCancel(false)
             .setDefaults(NotificationCompat.DEFAULT_SOUND)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
