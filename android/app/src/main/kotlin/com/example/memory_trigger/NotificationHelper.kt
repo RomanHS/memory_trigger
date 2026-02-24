@@ -65,6 +65,24 @@ object NotificationHelper {
             setOnClickPendingIntent(R.id.btn_priority_high,   highPendingIntent)
             setOnClickPendingIntent(R.id.btn_priority_medium, mediumPendingIntent)
             setOnClickPendingIntent(R.id.btn_priority_low,    lowPendingIntent)
+
+            // Ссылки на словари
+            val googleUrl = "https://translate.google.com/m?sl=en&tl=ru&text=${Uri.encode(foreignWord)}&op=translate"
+            val cambridgeUrl = "https://dictionary.cambridge.org/dictionary/english/${Uri.encode(foreignWord)}"
+
+            val googleIntent = PendingIntent.getActivity(
+                context, 6, 
+                Intent(Intent.ACTION_VIEW, Uri.parse(googleUrl)),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val cambridgeIntent = PendingIntent.getActivity(
+                context, 7,
+                Intent(Intent.ACTION_VIEW, Uri.parse(cambridgeUrl)),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            setOnClickPendingIntent(R.id.btn_google, googleIntent)
+            setOnClickPendingIntent(R.id.btn_cambridge, cambridgeIntent)
         }
 
         val notification = NotificationCompat.Builder(context, MainActivity.CHANNEL_ID)

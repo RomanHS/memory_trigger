@@ -70,4 +70,34 @@
 
     </LinearLayout>
 
+    <!-- Ссылки -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp">
+
+        <Button
+            android:id="@+id/btn_google"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="34dp"
+            android:text="Google"
+            android:textSize="11sp"
+            android:backgroundTint="#4285F4"
+            android:textColor="#FFFFFF"/>
+
+        <Button
+            android:id="@+id/btn_cambridge"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="34dp"
+            android:layout_marginStart="8dp"
+            android:text="Cambridge"
+            android:textSize="11sp"
+            android:backgroundTint="#112E4E"
+            android:textColor="#FFFFFF"/>
+
+    </LinearLayout>
+
 </LinearLayout>
