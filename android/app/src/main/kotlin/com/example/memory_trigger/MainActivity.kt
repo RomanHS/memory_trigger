@@ -117,6 +117,11 @@ class MainActivity : FlutterActivity() {
                 "deleteWord" -> {
                     val wordId = (call.argument<Int>("id") ?: 0).toLong()
                     db.deleteWord(wordId)
+                    
+                    // Если удаляется слово, которое сейчас показано или запланировано,
+                    // находим следующее подходящее и показываем/планируем его.
+                    NotificationHelper.restoreCycle(this)
+                    
                     result.success(null)
                 }
                 "updateWordPriority" -> {

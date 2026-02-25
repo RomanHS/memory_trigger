@@ -168,34 +168,40 @@ object NotificationHelper {
     fun restoreCycle(context: Context) {
         val db = DatabaseHelper.getInstance(context)
         val lastWordId = db.getLastWordId()
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        if (lastWordId != -1L) {
-            // Если уведомление уже отображается в шторке, не нужно его перепланировать.
-            // Это предотвращает "прыжки" и лишние сработки при изменении настроек.
-            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // Проверяем, существует ли еще это слово в базе
+        val currentWord = if (lastWordId != -1L) db.getWordById(lastWordId) else null
+
+        if (currentWord != null) {
+            // Слово существует. Если оно уже в шторке — не трогаем.
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                 val isShowing = nm.activeNotifications.any { it.id == DatabaseHelper.NOTIFICATION_ID }
                 if (isShowing) return
             }
 
-            val word = db.getWordById(lastWordId)
-            if (word != null) {
-                val title = word["foreign_word"] as? String ?: ""
-                val body  = word["translation"]  as? String ?: ""
-                Log.d(TAG, "Restoring notification for last word: id=$lastWordId ($title)")
-                scheduleRepeatingNotification(context, title, body, lastWordId)
-            }
+            val title = currentWord["foreign_word"] as? String ?: ""
+            val body  = currentWord["translation"]  as? String ?: ""
+            Log.d(TAG, "Restoring notification for word: id=$lastWordId ($title)")
+            scheduleRepeatingNotification(context, title, body, lastWordId)
         } else {
-            // Если слов нет в активных, пробуем начать сначала
-            val words = db.getAllWords()
-            if (words.isNotEmpty()) {
-                val nextWord = db.getNextWord(-1L)
-                if (nextWord != null) {
-                    val title = nextWord["foreign_word"] as? String ?: ""
-                    val body  = nextWord["translation"]  as? String ?: ""
-                    Log.d(TAG, "Starting new cycle from first word")
-                    scheduleRepeatingNotification(context, title, body, nextWord["id"] as Long)
-                }
+            // Слова не существует (удалено) или его не было.
+            // Убираем старое уведомление, если оно висит
+            nm.cancel(DatabaseHelper.NOTIFICATION_ID)
+
+            // Пробуем запустить цикл со следующего доступного слова
+            val nextWord = db.getNextWord(lastWordId) // Если lastWordId был -1 или удален, getNextWord вернет первое или следующее
+            if (nextWord != null) {
+                val title = nextWord["foreign_word"] as? String ?: ""
+                val body  = nextWord["translation"]  as? String ?: ""
+                val nextId = nextWord["id"] as Long
+                Log.d(TAG, "Starting/Restarting cycle from word: id=$nextId")
+                scheduleRepeatingNotification(context, title, body, nextId)
+            } else {
+                // В базе вообще нет слов
+                db.setLastWordId(-1L)
+                MainActivity.sendEvent("db_changed")
+                Log.d(TAG, "No words in DB to schedule")
             }
         }
     }
