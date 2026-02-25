@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="64dp"
     android:orientation="vertical"
-    android:padding="8dp">
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
 
     <!-- Иностранное слово -->
     <TextView
@@ -11,9 +14,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text=""
-        android:textSize="15sp"
+        android:textSize="14sp"
         android:textStyle="bold"
-        android:layout_marginBottom="6dp"/>
+        android:textColor="@color/notif_text_color"
+        android:layout_marginBottom="2dp"/>
 
     <!-- Кнопки -->
     <LinearLayout
