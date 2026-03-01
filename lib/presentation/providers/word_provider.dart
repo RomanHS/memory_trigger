@@ -158,6 +158,32 @@ class WordProvider with ChangeNotifier {
     }
   }
 
+  Future<void> shuffle() async {
+    try {
+      _status = 'Перемешивание...';
+      notifyListeners();
+      await _repository.shuffleWords();
+      _status = 'Порядок слов перемешан ✓';
+      notifyListeners();
+    } catch (e) {
+      _status = 'Ошибка перемешивания: $e';
+      notifyListeners();
+    }
+  }
+
+  Future<void> resetOrder() async {
+    try {
+      _status = 'Восстановление порядка...';
+      notifyListeners();
+      await _repository.resetWordOrder();
+      _status = 'Порядок по умолчанию восстановлен ✓';
+      notifyListeners();
+    } catch (e) {
+      _status = 'Ошибка: $e';
+      notifyListeners();
+    }
+  }
+
   String _delayLabel() {
     if (_delaySeconds < 60) return '$_delaySeconds сек';
     final m = _delaySeconds ~/ 60;

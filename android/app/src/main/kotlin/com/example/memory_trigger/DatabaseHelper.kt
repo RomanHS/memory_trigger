@@ -12,7 +12,7 @@ class DatabaseHelper(context: Context) :
 
     companion object {
         const val DATABASE_NAME    = "memory_trigger.db"
-        const val DATABASE_VERSION = 6
+        const val DATABASE_VERSION = 7
 
         // ── Приоритеты ───────────────────────────────────────────────────────
         const val PRIORITY_HIGH   = 1
@@ -27,6 +27,7 @@ class DatabaseHelper(context: Context) :
         const val COL_CREATED_AT = "created_at"
         const val COL_WORD_TS    = "timestamp_ms"
         const val COL_PRIORITY   = "priority"
+        const val COL_SORT_ORDER = "sort_order"
 
         // ── settings ─────────────────────────────────────────────────────────
         const val TABLE_SETTINGS        = "settings"
@@ -58,7 +59,8 @@ class DatabaseHelper(context: Context) :
             $COL_TRANSLATION TEXT NOT NULL,
             $COL_CREATED_AT  TEXT NOT NULL,
             $COL_WORD_TS     INTEGER NOT NULL,
-            $COL_PRIORITY    INTEGER NOT NULL DEFAULT $PRIORITY_HIGH
+            $COL_PRIORITY    INTEGER NOT NULL DEFAULT $PRIORITY_HIGH,
+            $COL_SORT_ORDER  INTEGER NOT NULL DEFAULT 0
         )
     """.trimIndent()
 
@@ -100,6 +102,12 @@ class DatabaseHelper(context: Context) :
             db.execSQL("INSERT OR IGNORE INTO $TABLE_SETTINGS VALUES ('$KEY_GSHEET_LINK', '')")
             Log.d(TAG, "Migrated to v6: gsheet_link added")
         }
+        if (oldVersion < 7) {
+            db.execSQL("ALTER TABLE $TABLE_WORDS ADD COLUMN $COL_SORT_ORDER INTEGER NOT NULL DEFAULT 0")
+            // Инициализируем sort_order через ID, чтобы сохранить текущий порядок
+            db.execSQL("UPDATE $TABLE_WORDS SET $COL_SORT_ORDER = $COL_WORD_ID")
+            Log.d(TAG, "Migrated to v7: sort_order column added")
+        }
     }
 
     // ── words: CRUD ────────────────────────────────────────────────────────────
@@ -112,7 +120,13 @@ class DatabaseHelper(context: Context) :
             put(COL_WORD_TS, timestampMs)
             put(COL_PRIORITY, PRIORITY_HIGH)
         }
-        return writableDatabase.insertWithOnConflict(TABLE_WORDS, null, values, SQLiteDatabase.CONFLICT_IGNORE).also {
+        val id = writableDatabase.insertWithOnConflict(TABLE_WORDS, null, values, SQLiteDatabase.CONFLICT_IGNORE)
+        if (id != -1L) {
+            // Устанавливаем sort_order равным id по умолчанию
+            val updateValues = ContentValues().apply { put(COL_SORT_ORDER, id) }
+            writableDatabase.update(TABLE_WORDS, updateValues, "$COL_WORD_ID = ?", arrayOf(id.toString()))
+        }
+        return id.also {
             Log.d(TAG, "Inserted word id=$it '$foreignWord'")
         }
     }
@@ -150,7 +164,11 @@ class DatabaseHelper(context: Context) :
                             put(COL_WORD_TS, now)
                             put(COL_PRIORITY, PRIORITY_HIGH)
                         }
-                        db.insert(TABLE_WORDS, null, values)
+                        val newId = db.insert(TABLE_WORDS, null, values)
+                        if (newId != -1L) {
+                            val sv = ContentValues().apply { put(COL_SORT_ORDER, newId) }
+                            db.update(TABLE_WORDS, sv, "$COL_WORD_ID = ?", arrayOf(newId.toString()))
+                        }
                         importedCount++
                     }
                 }
@@ -186,8 +204,8 @@ class DatabaseHelper(context: Context) :
         val result = mutableListOf<Map<String, Any>>()
         readableDatabase.query(
             TABLE_WORDS,
-            arrayOf(COL_WORD_ID, COL_FOREIGN, COL_TRANSLATION, COL_CREATED_AT, COL_WORD_TS, COL_PRIORITY),
-            null, null, null, null, "$COL_WORD_TS DESC"
+            null,
+            null, null, null, null, "$COL_SORT_ORDER ASC"
         ).use { c ->
             while (c.moveToNext()) result.add(wordFromCursor(c))
         }
@@ -205,48 +223,75 @@ class DatabaseHelper(context: Context) :
      */
     fun getNextWord(currentId: Long): Map<String, Any>? {
         var loopCount = getLoopCount()
-        var searchId = currentId
         val db = readableDatabase
 
-        // Безопасный предел поиска (чтобы не уйти в бесконечный цикл)
+        // Получаем текущий sort_order
+        var currentSortOrder = -1
+        if (currentId != -1L) {
+            db.query(TABLE_WORDS, arrayOf(COL_SORT_ORDER), "$COL_WORD_ID = ?", arrayOf(currentId.toString()), null, null, null).use { c ->
+                if (c.moveToFirst()) currentSortOrder = c.getInt(0)
+            }
+        }
+
+        // Безопасный предел поиска
         for (pass in 1..20) {
             db.query(
                 TABLE_WORDS,
                 null,
-                "$COL_WORD_ID > ?",
-                arrayOf(searchId.toString()),
-                null, null, "$COL_WORD_ID ASC"
+                "$COL_SORT_ORDER > ?",
+                arrayOf(currentSortOrder.toString()),
+                null, null, "$COL_SORT_ORDER ASC"
             ).use { c ->
                 while (c.moveToNext()) {
                     val word = wordFromCursor(c)
                     val priority = (word["priority"] as? Int) ?: PRIORITY_HIGH
-                    
-                    // Условие показа: номер круга кратен приоритету
-                    if (loopCount % priority == 0) {
-                        return word
-                    }
+                    if (loopCount % priority == 0) return word
                 }
             }
 
-            // Если дошли до конца — инкрементируем круг и начинаем с начала id=-1
+            // Конец цикла
             loopCount++
             setLoopCount(loopCount)
-            searchId = -1L
+            currentSortOrder = -1 
         }
 
-        // Если совсем ничего не нашли (например, пустая БД), пробуем взять хоть что-то
-        db.query(TABLE_WORDS, null, null, null, null, null, "$COL_WORD_ID ASC", "1").use { c ->
+        // Если совсем ничего не нашли, берем первое по sort_order
+        db.query(TABLE_WORDS, null, null, null, null, null, "$COL_SORT_ORDER ASC", "1").use { c ->
             if (c.moveToFirst()) return wordFromCursor(c)
         }
-
         return null
+    }
+
+    fun shuffleWords() {
+        val db = writableDatabase
+        val words = mutableListOf<Long>()
+        db.query(TABLE_WORDS, arrayOf(COL_WORD_ID), null, null, null, null, null).use { c ->
+            while (c.moveToNext()) words.add(c.getLong(0))
+        }
+        words.shuffle()
+        db.beginTransaction()
+        try {
+            words.forEachIndexed { index, id ->
+                val cv = ContentValues().apply { put(COL_SORT_ORDER, index) }
+                db.update(TABLE_WORDS, cv, "$COL_WORD_ID = ?", arrayOf(id.toString()))
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    fun resetWordOrder() {
+        val db = writableDatabase
+        db.execSQL("UPDATE $TABLE_WORDS SET $COL_SORT_ORDER = $COL_WORD_ID")
     }
 
     private fun wordFromCursor(c: Cursor): Map<String, Any> {
         val result = mutableMapOf<String, Any>(
             "id"           to c.getLong(c.getColumnIndexOrThrow(COL_WORD_ID)),
             "foreign_word" to c.getString(c.getColumnIndexOrThrow(COL_FOREIGN)),
-            "translation"  to c.getString(c.getColumnIndexOrThrow(COL_TRANSLATION))
+            "translation"  to c.getString(c.getColumnIndexOrThrow(COL_TRANSLATION)),
+            "sort_order"   to c.getInt(c.getColumnIndexOrThrow(COL_SORT_ORDER))
         )
         val createdIdx  = c.getColumnIndex(COL_CREATED_AT)
         val tsIdx       = c.getColumnIndex(COL_WORD_TS)

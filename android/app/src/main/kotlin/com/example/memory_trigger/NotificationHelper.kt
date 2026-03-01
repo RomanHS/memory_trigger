@@ -61,9 +61,9 @@ object NotificationHelper {
             setOnClickPendingIntent(R.id.btn_priority_medium, mediumPendingIntent)
             setOnClickPendingIntent(R.id.btn_priority_low,    lowPendingIntent)
 
-            setTextViewText(R.id.btn_priority_high,   if (currentPriority == DatabaseHelper.PRIORITY_HIGH)   "✓" else "")
-            setTextViewText(R.id.btn_priority_medium, if (currentPriority == DatabaseHelper.PRIORITY_MEDIUM) "✓" else "")
-            setTextViewText(R.id.btn_priority_low,    if (currentPriority == DatabaseHelper.PRIORITY_LOW)    "✓" else "")
+            setTextViewText(R.id.btn_priority_high,   "")
+            setTextViewText(R.id.btn_priority_medium, "")
+            setTextViewText(R.id.btn_priority_low,    "")
         }
 
         val expanded = RemoteViews(packageName, R.layout.notification_expanded).apply {
