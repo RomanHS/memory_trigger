@@ -195,6 +195,18 @@ class MainActivity : FlutterActivity() {
                     
                     result.success(importedCount)
                 }
+                "shuffleWords" -> {
+                    db.shuffleWords()
+                    NotificationHelper.restoreCycle(this)
+                    sendEvent("db_changed")
+                    result.success(null)
+                }
+                "resetWordOrder" -> {
+                    db.resetWordOrder()
+                    NotificationHelper.restoreCycle(this)
+                    sendEvent("db_changed")
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }

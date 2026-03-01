@@ -12,6 +12,8 @@ abstract class WordRepository {
   Future<void> setDelaySeconds(int seconds);
   Future<void> setGSheetLink(String link);
   Future<int> syncGSheets(String link);
+  Future<void> shuffleWords();
+  Future<void> resetWordOrder();
   Future<void> requestNotificationPermission();
   Stream<String> get eventStream;
 }

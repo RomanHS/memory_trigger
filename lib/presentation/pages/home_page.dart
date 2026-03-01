@@ -28,7 +28,7 @@ class HomePage extends StatelessWidget {
           children: [
             _Header(status: provider.status),
             const SizedBox(height: 20),
-            _SubHeader(wordCount: provider.words.length, onRefresh: provider.refresh),
+            _SubHeader(wordCount: provider.words.length, onRefresh: provider.refresh, onShuffle: provider.shuffle, onReset: provider.resetOrder),
             const SizedBox(height: 8),
             Expanded(
               child: provider.isLoading && provider.words.isEmpty
@@ -108,8 +108,10 @@ class _Header extends StatelessWidget {
 class _SubHeader extends StatelessWidget {
   final int wordCount;
   final VoidCallback onRefresh;
+  final VoidCallback onShuffle;
+  final VoidCallback onReset;
 
-  const _SubHeader({required this.wordCount, required this.onRefresh});
+  const _SubHeader({required this.wordCount, required this.onRefresh, required this.onShuffle, required this.onReset});
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +126,16 @@ class _SubHeader extends StatelessWidget {
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFFEFEFEF)),
           ),
           const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.shuffle_rounded, color: Color(0xFF666677), size: 20),
+            onPressed: onShuffle,
+            tooltip: 'Перемешать порядок',
+          ),
+          IconButton(
+            icon: const Icon(Icons.sort_rounded, color: Color(0xFF666677), size: 20),
+            onPressed: onReset,
+            tooltip: 'Порядок по умолчанию',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF666677), size: 20),
             onPressed: onRefresh,

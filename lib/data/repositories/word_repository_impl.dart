@@ -110,6 +110,16 @@ class WordRepositoryImpl implements WordRepository {
   }
 
   @override
+  Future<void> shuffleWords() async {
+    await _dbChannel.invokeMethod('shuffleWords');
+  }
+
+  @override
+  Future<void> resetWordOrder() async {
+    await _dbChannel.invokeMethod('resetWordOrder');
+  }
+
+  @override
   Future<void> requestNotificationPermission() async {
     await _channel.invokeMethod('requestNotificationPermission');
   }
