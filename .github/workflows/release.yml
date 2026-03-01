@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+      ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
 
     steps:
       - name: Checkout repository
@@ -26,6 +29,12 @@ jobs:
           flutter-version: '3.41.1'
           channel: 'stable'
           cache: true
+
+      - name: Create key.properties and decode keystore
+        if: env.ANDROID_KEY_PROPERTIES != ''
+        run: |
+          echo "$ANDROID_KEY_PROPERTIES" > android/key.properties
+          echo "$ANDROID_KEYSTORE" | base64 --decode > android/app/release.keystore
 
       - name: Install dependencies
         run: flutter pub get
