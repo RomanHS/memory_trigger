@@ -3,8 +3,8 @@ name: Build Release APK
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  # pull_request:
+  #   branches: [ main ]
 
 jobs:
   build:
@@ -34,7 +34,10 @@ jobs:
         run: flutter clean
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --build-name=0.1.${{ github.run_number }} --build-number=${{ github.run_number }}
+
+      - name: Rename APK
+        run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/memory_trigger_v${{ github.run_number }}.apk
 
       - name: Send APK to Telegram
         if: success()
@@ -42,10 +45,10 @@ jobs:
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
-          curl -v -F "chat_id=$CHAT_ID" -F document=@"build/app/outputs/flutter-apk/app-release.apk" -F caption="✅ Новая сборка Memory Trigger готова! (v${{ github.run_number }})" "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
+          curl -v -F "chat_id=$CHAT_ID" -F document=@"build/app/outputs/flutter-apk/memory_trigger_v${{ github.run_number }}.apk" -F caption="✅ Новая сборка Memory Trigger готова! (v${{ github.run_number }})" "https://api.telegram.org/bot$BOT_TOKEN/sendDocument"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: release-apk-v${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/memory_trigger_v${{ github.run_number }}.apk
