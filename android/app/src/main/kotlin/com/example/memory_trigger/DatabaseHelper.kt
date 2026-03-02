@@ -147,6 +147,8 @@ class DatabaseHelper(context: Context) :
             for (wordMap in words) {
                 val foreign = wordMap["foreign_word"] ?: continue
                 val translation = wordMap["translation"] ?: ""
+                val priorityString = wordMap["priority"]
+                val priority = priorityString?.toIntOrNull() ?: PRIORITY_HIGH
                 
                 // Проверяем существование
                 db.query(TABLE_WORDS, arrayOf(COL_WORD_ID), "$COL_FOREIGN = ?", arrayOf(foreign), null, null, null).use { cursor ->
@@ -162,7 +164,7 @@ class DatabaseHelper(context: Context) :
                             put(COL_TRANSLATION, translation)
                             put(COL_CREATED_AT, createdAt)
                             put(COL_WORD_TS, now)
-                            put(COL_PRIORITY, PRIORITY_HIGH)
+                            put(COL_PRIORITY, priority)
                         }
                         val newId = db.insert(TABLE_WORDS, null, values)
                         if (newId != -1L) {

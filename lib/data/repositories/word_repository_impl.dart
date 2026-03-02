@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:csv/csv.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/word.dart';
 import '../../domain/repositories/word_repository.dart';
 
@@ -94,15 +95,62 @@ class WordRepositoryImpl implements WordRepository {
 
     // 4. Формируем список для импорта
     final List<Map<String, String>> wordsToImport = [];
-    for (var row in csvData) {
+    final Map<String, int> csvDataMap = {};
+    for (int i = 0; i < csvData.length; i++) {
+      final row = csvData[i];
       if (row.length < 2) continue;
       final foreign = row[0].toString().trim();
       final translation = row[1].toString().trim();
+      final int priority = row.length < 3 ? 1 : int.tryParse(row[2].toString().trim()) ?? 1;
+
       if (foreign.isEmpty) continue;
-      wordsToImport.add({'foreign_word': foreign, 'translation': translation});
+      wordsToImport.add({'foreign_word': foreign, 'translation': translation, 'priority': priority.toString()});
+
+      csvDataMap[foreign] = i + 1;
     }
 
     if (wordsToImport.isEmpty) throw Exception('Не найдено слов для импорта');
+
+    if (csvDataMap.isNotEmpty) {
+      try {
+        final List<Word> allWords = await getAllWords();
+        final List<List<int>> list = [];
+
+        for (Word word in allWords) {
+          final int? number = csvDataMap[word.foreignWord];
+
+          if (number == null) {
+            continue;
+          }
+
+          list.add([number, word.priority]);
+        }
+
+        if (list.isEmpty) {
+          throw Exception('Не найдено слов для синхронизации');
+        }
+
+        String extractSheetId(String url) {
+          final regExp = RegExp(r'/d/([a-zA-Z0-9-_]+)');
+          final match = regExp.firstMatch(url);
+          return match?.group(1) ?? '';
+        }
+
+        final String table = extractSheetId(link);
+
+        if (table.isEmpty) {
+          throw Exception('Не удалось извлечь ID таблицы');
+        }
+
+        final url = Uri.parse('https://script.google.com/macros/s/AKfycbzgehCEC0RHjT9_aEVTtM4aPMVZcqdFR7JmvXBSUZvD2JKYj_Lt7WnIeCldpmwQEpOu/exec');
+
+        final response = await http.post(url, body: jsonEncode({"table": table, "words": list}));
+
+        debugPrint('${response.statusCode}\n\n${response.body}');
+      } catch (e) {
+        debugPrint(e.toString());
+      }
+    }
 
     // 5. Отправляем в натив
     final dynamic result = await _dbChannel.invokeMethod('bulkAddWords', {'words': wordsToImport});
